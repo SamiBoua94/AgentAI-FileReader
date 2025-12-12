@@ -14,5 +14,7 @@ else:
         for m in genai.list_models():
             if 'generateContent' in m.supported_generation_methods:
                 print(f"Nom: {m.name}")
+                print(f"  Méthodes: {m.supported_generation_methods}")
+                print()
     except Exception as e:
         print(f"Erreur lors du listing : {e}")

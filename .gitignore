@@ -9,3 +9,7 @@ venv/
 pip-log.txt
 pip-delete-this-directory.txt
 .vscode/
+credentials.json
+serviceAccountKey.json
+request_counter.json
+picturetaken/

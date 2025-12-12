@@ -1,95 +1,238 @@
 import os
 import json
-import asyncio
-from typing import List
+from datetime import datetime
 from dotenv import load_dotenv
-from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_core.messages import HumanMessage
-from langchain_core.output_parsers import JsonOutputParser
-from pydantic import BaseModel, Field
+import google.generativeai as genai
+from PIL import Image
 
 # 1. Configuration
 load_dotenv()
 
-# --- Modèle de Données (Ce qu'on veut extraire de la photo) ---
-class AnalyseResult(BaseModel):
-    summary: str = Field(description="Un résumé court du contenu de l'image")
-    key_data: dict = Field(description="Les données chiffrées ou importantes (ex: montant, dates)")
-    action_items: List[str] = Field(description="Liste des actions à entreprendre basées sur l'image")
-    urgency: str = Field(description="Niveau d'urgence : Low, Medium, High")
+# Configure l'API
+api_key = os.getenv("GOOGLE_API_KEY")
+if not api_key:
+    print("⚠️  Erreur: GOOGLE_API_KEY non trouvée dans le fichier .env")
+    exit(1)
 
-# --- Fonctions Simulées (Vos Outils) ---
-async def update_dashboard(data: dict):
-    """Simule l'envoi des données vers un Notion/Excel/Dashboard."""
-    print(f"\n[DASHBOARD] Mise à jour en cours...")
-    await asyncio.sleep(1) # Simulation délai réseau
-    print(f"[DASHBOARD] ✅ Données enregistrées : {json.dumps(data, indent=2)}")
+genai.configure(api_key=api_key)
 
-async def schedule_reminder(actions: List[str]):
-    """Simule la programmation de rappels."""
-    print(f"\n[RAPPEL] Analyse des rappels à créer...")
-    for action in actions:
-        # Ici on pourrait appeler l'API de Google Calendar ou Slack
-        print(f"[RAPPEL] ⏰ Rappel programmé pour : '{action}'")
+# Fichier pour stocker le compteur de demandes
+COUNTER_FILE = os.path.join(os.path.dirname(__file__), "request_counter.json")
 
-# --- Fonctions Utilitaires ---
-def encode_image(image_path):
-    import base64
-    with open(image_path, "rb") as image_file:
-        return base64.b64encode(image_file.read()).decode('utf-8')
-
-# --- Cœur de l'Agent ---
-async def process_image(image_path: str):
-    print(f"--- Analyse de l'image : {image_path} ---")
+# --- Gestion du Compteur de Demandes ---
+def get_next_request_id() -> int:
+    """Récupère et incrémente le compteur de demandes."""
+    if os.path.exists(COUNTER_FILE):
+        with open(COUNTER_FILE, "r") as f:
+            data = json.load(f)
+            current_id = data.get("last_id", 0)
+    else:
+        current_id = 0
     
-    # 2. Préparation du Modèle Vision
-    llm = ChatGoogleGenerativeAI(model="gemini-flash-latest") 
+    new_id = current_id + 1
     
-    parser = JsonOutputParser(pydantic_object=AnalyseResult)
+    with open(COUNTER_FILE, "w") as f:
+        json.dump({"last_id": new_id}, f)
     
-    # 2b. Encodage de l'image en Base64
-    try:
-        base64_image = encode_image(image_path)
-    except Exception as e:
-        print(f"Erreur de lecture de l'image : {e}")
+    return new_id
+
+# URL du Google Sheet où les logs seront enregistrés
+# URL du Google Sheet où les logs seront enregistrés
+SHEET_URL = "https://docs.google.com/spreadsheets/d/1uEE2YIpzs74-JCcEb5NvQCeUm9VgV_owTRocvl34qH4/edit?usp=sharing"
+
+# --- Google Sheets Integration ---
+def log_to_google_sheet(request_id, date, image_name, title, description):
+    """Enregistre les données dans Google Sheets.
+    Utilise l'URL du sheet fourni pour ouvrir le document.
+    """
+    import gspread
+    from oauth2client.service_account import ServiceAccountCredentials
+    
+    scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
+    creds_file = os.path.join(os.path.dirname(__file__), 'credentials.json')
+    
+    if not os.path.exists(creds_file):
+        print("⚠️  Erreur: credentials.json introuvable. Logging désactivé.")
         return
 
-    # 3. Construction de la requête avec l'image (Format Data URI)
-    message = HumanMessage(
-        content=[
-            {
-                "type": "text", 
-                "text": "Analyse cette image. Extrais les informations pour mettre à jour mon dashboard de suivi. \n" + parser.get_format_instructions()
-            },
-            {
-                "type": "image_url", 
-                "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}
-            }
-        ]
-    )
-
     try:
-        print("Envoi de la requête à Gemini...")
-        # 4. Appel AI
-        response = await llm.ainvoke([message])
+        creds = ServiceAccountCredentials.from_json_keyfile_name(creds_file, scope)
+        client = gspread.authorize(creds)
         
-        # 5. Parsing du résultat
-        parsed_result = parser.parse(response.content)
+        # Ouvrir le sheet par URL
+        sheet = client.open_by_url(SHEET_URL).sheet1
         
-        # 6. Exécution des actions en Parallèle
-        await asyncio.gather(
-            update_dashboard(parsed_result['key_data']),
-            schedule_reminder(parsed_result['action_items'])
+        row = [request_id, date, image_name, title, description]
+        sheet.append_row(row)
+        print("✅ Données enregistrées dans Google Sheet !")
+        
+    except Exception as e:
+        print(f"❌ Erreur Google Sheets : {e}")
+
+# --- Affichage des Résultats (Tkinter) ---
+def show_results_window(request_id, image_name, date_time, titre, description):
+    """Affiche les résultats de l'analyse dans une fenêtre Tkinter."""
+    import tkinter as tk
+    from tkinter import ttk, scrolledtext
+    
+    # Créer la fenêtre principale
+    root = tk.Tk()
+    root.title(f"Agent Vision - Résultat #{request_id}")
+    root.geometry("600x500")
+    root.configure(bg="#2b2b2b")
+    
+    # Style
+    style = ttk.Style()
+    style.theme_use('clam')
+    
+    # Frame principal
+    main_frame = tk.Frame(root, bg="#2b2b2b", padx=20, pady=20)
+    main_frame.pack(fill=tk.BOTH, expand=True)
+    
+    # Titre de la fenêtre
+    title_label = tk.Label(
+        main_frame, 
+        text="🤖 AGENT VISION - Résultat de l'analyse",
+        font=("Segoe UI", 16, "bold"),
+        fg="#4CAF50",
+        bg="#2b2b2b"
+    )
+    title_label.pack(pady=(0, 20))
+    
+    # Frame pour les informations
+    info_frame = tk.Frame(main_frame, bg="#3c3c3c", padx=15, pady=15)
+    info_frame.pack(fill=tk.X, pady=(0, 15))
+    
+    # Informations
+    info_labels = [
+        (f"📋 Demande numéro : {request_id}", "#FFA726"),
+        (f"🖼️ Nom de l'image : {image_name}", "#42A5F5"),
+        (f"📅 Date : {date_time}", "#AB47BC"),
+        (f"📌 Titre : {titre}", "#66BB6A")
+    ]
+    
+    for text, color in info_labels:
+        label = tk.Label(
+            info_frame,
+            text=text,
+            font=("Segoe UI", 11),
+            fg=color,
+            bg="#3c3c3c",
+            anchor="w"
         )
+        label.pack(fill=tk.X, pady=3)
+    
+    # Label pour la description
+    desc_label = tk.Label(
+        main_frame,
+        text="📝 Description du contenu :",
+        font=("Segoe UI", 12, "bold"),
+        fg="#FFFFFF",
+        bg="#2b2b2b",
+        anchor="w"
+    )
+    desc_label.pack(fill=tk.X, pady=(10, 5))
+    
+    # Zone de texte scrollable pour la description
+    desc_text = scrolledtext.ScrolledText(
+        main_frame,
+        wrap=tk.WORD,
+        font=("Segoe UI", 10),
+        bg="#3c3c3c",
+        fg="#FFFFFF",
+        height=10,
+        padx=10,
+        pady=10
+    )
+    desc_text.pack(fill=tk.BOTH, expand=True)
+    desc_text.insert(tk.END, description)
+    desc_text.config(state=tk.DISABLED)
+    
+    # Bouton Fermer
+    close_btn = tk.Button(
+        main_frame,
+        text="Fermer",
+        font=("Segoe UI", 11),
+        bg="#4CAF50",
+        fg="white",
+        padx=30,
+        pady=8,
+        command=root.destroy
+    )
+    close_btn.pack(pady=(15, 0))
+    
+    # Afficher la fenêtre
+    root.mainloop()
+
+# --- Cœur de l'Agent ---
+def process_image(image_path: str):
+    # Récupérer l'ID de la demande
+    request_id = get_next_request_id()
+    
+    # Récupérer la date et l'heure actuelles
+    current_datetime = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+    
+    # Récupérer le nom de l'image
+    image_name = os.path.basename(image_path)
+    
+    print(f"\n🔄 Traitement en cours...")
+    
+    titre = "null"
+    description = "null"
+    
+    try:
+        # Charger l'image
+        img = Image.open(image_path)
         
-        print("\n--- Terminé avec succès ---")
+        # Utiliser le modèle Gemini Flash
+        model = genai.GenerativeModel('gemini-flash-latest')
         
+        # Créer le prompt
+        prompt = """Analyse cette image et fournis:
+1. Un titre court décrivant le sujet principal
+2. Une description détaillée de ce que tu vois
+
+Réponds au format JSON suivant:
+{
+    "titre": "titre court ici",
+    "description": "description détaillée ici"
+}"""
+        
+        # Générer la réponse
+        response = model.generate_content([prompt, img])
+        
+        # Parser la réponse JSON
+        response_text = response.text.strip()
+        
+        # Nettoyer la réponse si elle contient des balises markdown
+        if response_text.startswith("```json"):
+            response_text = response_text.replace("```json", "").replace("```", "").strip()
+        elif response_text.startswith("```"):
+            response_text = response_text.replace("```", "").strip()
+        
+        result = json.loads(response_text)
+        
+        # Mettre à jour avec les résultats
+        titre = result.get('titre', "null")
+        description = result.get('description', "null")
+        
+        # Afficher les résultats dans une fenêtre Tkinter
+        show_results_window(request_id, image_name, current_datetime, titre, description)
+        
+    except json.JSONDecodeError as e:
+        print(f"\n⚠️  Erreur de parsing JSON. Réponse brute:")
+        print(response.text)
+        print(f"\nErreur: {e}")
     except Exception as e:
         import traceback
         traceback.print_exc()
-        print(f"Erreur lors de l'exécution : {e}")
+        print(f"\n❌ Erreur lors de l'exécution : {e}")
+        
+    finally:
+        # Toujours enregistrer dans Google Sheets, même en cas d'erreur (avec valeurs "null" si échec)
+        log_to_google_sheet(request_id, current_datetime, image_name, titre, description)
 
-# --- Sélection de Photo ---
+# --- Sélection de Photo (Tkinter) ---
 def select_photo():
     """Ouvre une boîte de dialogue pour sélectionner une photo."""
     import tkinter as tk
@@ -127,7 +270,6 @@ def select_photo():
 def save_to_picturetaken(source_path: str) -> str:
     """Copie la photo dans le dossier picturetaken et retourne le nouveau chemin."""
     import shutil
-    from datetime import datetime
     
     # Créer le dossier picturetaken s'il n'existe pas
     picturetaken_folder = os.path.join(os.getcwd(), "picturetaken")
@@ -148,21 +290,31 @@ def save_to_picturetaken(source_path: str) -> str:
     
     return destination
 
-# --- Lancement ---
-if __name__ == "__main__":
-    # Sélection interactive de la photo
+# --- Analyse (Fonction principale) ---
+def start_analysis():
+    """Lance le processus de sélection et d'analyse."""
+    print("\n" + "="*60)
+    print("  🤖 AGENT VISION - Analyse d'images avec Gemini")
+    print("="*60)
+    
+    # Sélection de la photo via tkinter
     image_path = select_photo()
     
     if image_path:
         if os.path.exists(image_path):
-            print(f"📷 Photo sélectionnée : {image_path}")
+            print(f"\n📷 Photo sélectionnée : {image_path}")
             
             # Copier la photo dans le dossier picturetaken
             saved_path = save_to_picturetaken(image_path)
             
             # Analyser la photo
-            asyncio.run(process_image(saved_path))
+            process_image(saved_path)
         else:
-            print(f"⚠️  Image introuvable : {image_path}")
+            print(f"\n⚠️  Image introuvable : {image_path}")
+            print("Vérifiez que le fichier existe et que le chemin est correct.")
     else:
-        print("❌ Aucune photo sélectionnée.")
+        print("\n❌ Aucune photo sélectionnée.")
+
+# --- Lancement ---
+if __name__ == "__main__":
+    start_analysis()
