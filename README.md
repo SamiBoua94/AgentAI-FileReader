@@ -1,5 +1,7 @@
 # Agent AI - Instructions
 
+Vous avez besoin d'un compte google cloud platform.
+
 Voici comment lancer votre agent :
 Votre environnement n'a pas Pytnon installé (ou configuré dans le PATH). 
 
@@ -25,7 +27,7 @@ python agent_vision.py
 ```
 
 
-# Guide d'Intégration Google Sheets
+# Guide d'Intégration de la base de données Google Cloud
 
 Pour enregistrer vos données dans un Google Sheet, nous devons autoriser un "robot" (Service Account) à écrire dans votre fichier.
 
