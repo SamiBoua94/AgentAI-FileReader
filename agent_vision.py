@@ -148,18 +148,42 @@ def show_results_window(request_id, image_name, date_time, titre, description):
     desc_text.insert(tk.END, description)
     desc_text.config(state=tk.DISABLED)
     
-    # Bouton Fermer
-    close_btn = tk.Button(
-        main_frame,
-        text="Fermer",
+    # Frame pour les boutons
+    btn_frame = tk.Frame(main_frame, bg="#2b2b2b")
+    btn_frame.pack(pady=(15, 0))
+
+    # Bouton Retour (Ferme la fenêtre, retour au menu)
+    back_btn = tk.Button(
+        btn_frame,
+        text="⬅️ Retour",
         font=("Segoe UI", 11),
-        bg="#4CAF50",
+        bg="#2196F3",
         fg="white",
-        padx=30,
+        padx=20,
         pady=8,
+        cursor="hand2",
         command=root.destroy
     )
-    close_btn.pack(pady=(15, 0))
+    back_btn.pack(side=tk.LEFT, padx=10)
+
+    # Bouton Fermer (Quitte l'application)
+    def quit_app():
+        import sys
+        root.destroy()
+        sys.exit()
+
+    close_btn = tk.Button(
+        btn_frame,
+        text="❌ Fermer",
+        font=("Segoe UI", 11),
+        bg="#D32F2F",
+        fg="white",
+        padx=20,
+        pady=8,
+        cursor="hand2",
+        command=quit_app
+    )
+    close_btn.pack(side=tk.LEFT, padx=10)
     
     # Afficher la fenêtre
     root.mainloop()
@@ -223,10 +247,33 @@ Réponds au format JSON suivant:
         print(f"\n⚠️  Erreur de parsing JSON. Réponse brute:")
         print(response.text)
         print(f"\nErreur: {e}")
+        
     except Exception as e:
         import traceback
-        traceback.print_exc()
-        print(f"\n❌ Erreur lors de l'exécution : {e}")
+        # Vérifier si c'est une erreur de quota (429 Resource Exhausted)
+        error_str = str(e)
+        if "429" in error_str or "ResourceExhausted" in error_str or "quota" in error_str.lower():
+            import tkinter as tk
+            from tkinter import messagebox
+            root = tk.Tk()
+            root.withdraw() # Cacher la fenêtre principale
+            messagebox.showerror(
+                "Erreur de Quota API",
+                "🚫 L'analyse a échoué.\n\n"
+                "Raison : La limite des requêtes API Gemini journalière a été atteinte.\n"
+                "Veuillez réessayer plus tard (souvent quelques minutes suffisent pour la limite par minute, ou demain pour la limite journalière)."
+            )
+            root.destroy()
+            print("\n❌ Erreur QUOTA API atteinte.")
+        else:
+            traceback.print_exc()
+            import tkinter as tk
+            from tkinter import messagebox
+            root = tk.Tk()
+            root.withdraw()
+            messagebox.showerror("Erreur", f"Une erreur s'est produite lors de l'analyse :\n{e}")
+            root.destroy()
+            print(f"\n❌ Erreur lors de l'exécution : {e}")
         
     finally:
         # Toujours enregistrer dans Google Sheets, même en cas d'erreur (avec valeurs "null" si échec)
