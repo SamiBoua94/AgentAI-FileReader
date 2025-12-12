@@ -1,0 +1,101 @@
+import os
+import json
+import asyncio
+from typing import List
+from dotenv import load_dotenv
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_core.messages import HumanMessage
+from langchain_core.output_parsers import JsonOutputParser
+from pydantic import BaseModel, Field
+
+# 1. Configuration
+load_dotenv()
+
+# --- Modèle de Données (Ce qu'on veut extraire de la photo) ---
+class AnalyseResult(BaseModel):
+    summary: str = Field(description="Un résumé court du contenu de l'image")
+    key_data: dict = Field(description="Les données chiffrées ou importantes (ex: montant, dates)")
+    action_items: List[str] = Field(description="Liste des actions à entreprendre basées sur l'image")
+    urgency: str = Field(description="Niveau d'urgence : Low, Medium, High")
+
+# --- Fonctions Simulées (Vos Outils) ---
+async def update_dashboard(data: dict):
+    """Simule l'envoi des données vers un Notion/Excel/Dashboard."""
+    print(f"\n[DASHBOARD] Mise à jour en cours...")
+    await asyncio.sleep(1) # Simulation délai réseau
+    print(f"[DASHBOARD] ✅ Données enregistrées : {json.dumps(data, indent=2)}")
+
+async def schedule_reminder(actions: List[str]):
+    """Simule la programmation de rappels."""
+    print(f"\n[RAPPEL] Analyse des rappels à créer...")
+    for action in actions:
+        # Ici on pourrait appeler l'API de Google Calendar ou Slack
+        print(f"[RAPPEL] ⏰ Rappel programmé pour : '{action}'")
+
+# --- Fonctions Utilitaires ---
+def encode_image(image_path):
+    import base64
+    with open(image_path, "rb") as image_file:
+        return base64.b64encode(image_file.read()).decode('utf-8')
+
+# --- Cœur de l'Agent ---
+async def process_image(image_path: str):
+    print(f"--- Analyse de l'image : {image_path} ---")
+    
+    # 2. Préparation du Modèle Vision
+    llm = ChatGoogleGenerativeAI(model="gemini-flash-latest") 
+    
+    parser = JsonOutputParser(pydantic_object=AnalyseResult)
+    
+    # 2b. Encodage de l'image en Base64
+    try:
+        base64_image = encode_image(image_path)
+    except Exception as e:
+        print(f"Erreur de lecture de l'image : {e}")
+        return
+
+    # 3. Construction de la requête avec l'image (Format Data URI)
+    message = HumanMessage(
+        content=[
+            {
+                "type": "text", 
+                "text": "Analyse cette image. Extrais les informations pour mettre à jour mon dashboard de suivi. \n" + parser.get_format_instructions()
+            },
+            {
+                "type": "image_url", 
+                "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}
+            }
+        ]
+    )
+
+    try:
+        print("Envoi de la requête à Gemini...")
+        # 4. Appel AI
+        response = await llm.ainvoke([message])
+        
+        # 5. Parsing du résultat
+        parsed_result = parser.parse(response.content)
+        
+        # 6. Exécution des actions en Parallèle
+        await asyncio.gather(
+            update_dashboard(parsed_result['key_data']),
+            schedule_reminder(parsed_result['action_items'])
+        )
+        
+        print("\n--- Terminé avec succès ---")
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        print(f"Erreur lors de l'exécution : {e}")
+
+# --- Lancement ---
+if __name__ == "__main__":
+    # Vous pouvez changer ce chemin
+    image_path = "exemple.jpg" 
+    
+    if not os.path.exists(image_path):
+        print(f"⚠️  Image introuvable : {image_path}")
+        print("Veuillez placer une image nommée 'exemple.jpg' dans ce dossier pour tester.")
+    else:
+        asyncio.run(process_image(image_path))

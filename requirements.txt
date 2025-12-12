@@ -1,0 +1,6 @@
+langchain
+langchain-google-genai
+pillow
+pydantic
+python-dotenv
+google-generativeai
