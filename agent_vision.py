@@ -124,6 +124,30 @@ def select_photo():
     root.destroy()
     return filepath
 
+def save_to_picturetaken(source_path: str) -> str:
+    """Copie la photo dans le dossier picturetaken et retourne le nouveau chemin."""
+    import shutil
+    from datetime import datetime
+    
+    # Créer le dossier picturetaken s'il n'existe pas
+    picturetaken_folder = os.path.join(os.getcwd(), "picturetaken")
+    if not os.path.exists(picturetaken_folder):
+        os.makedirs(picturetaken_folder)
+        print(f"📁 Dossier créé : {picturetaken_folder}")
+    
+    # Générer un nom de fichier unique avec timestamp
+    filename = os.path.basename(source_path)
+    name, ext = os.path.splitext(filename)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    new_filename = f"{name}_{timestamp}{ext}"
+    
+    # Copier le fichier
+    destination = os.path.join(picturetaken_folder, new_filename)
+    shutil.copy2(source_path, destination)
+    print(f"💾 Photo copiée dans : {destination}")
+    
+    return destination
+
 # --- Lancement ---
 if __name__ == "__main__":
     # Sélection interactive de la photo
@@ -132,7 +156,12 @@ if __name__ == "__main__":
     if image_path:
         if os.path.exists(image_path):
             print(f"📷 Photo sélectionnée : {image_path}")
-            asyncio.run(process_image(image_path))
+            
+            # Copier la photo dans le dossier picturetaken
+            saved_path = save_to_picturetaken(image_path)
+            
+            # Analyser la photo
+            asyncio.run(process_image(saved_path))
         else:
             print(f"⚠️  Image introuvable : {image_path}")
     else:
