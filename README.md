@@ -1,6 +1,7 @@
-# Agent Antigravity - Instructions
+# Agent AI - Instructions
 
-Votre environnement n'a pas Pytnon installé (ou configuré dans le PATH). Voici comment lancer votre agent :
+Voici comment lancer votre agent :
+Votre environnement n'a pas Pytnon installé (ou configuré dans le PATH). 
 
 ## 1. Installer Python
 1. Téléchargez Python sur [python.org/downloads](https://www.python.org/downloads/).
