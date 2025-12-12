@@ -89,13 +89,51 @@ async def process_image(image_path: str):
         traceback.print_exc()
         print(f"Erreur lors de l'exécution : {e}")
 
+# --- Sélection de Photo ---
+def select_photo():
+    """Ouvre une boîte de dialogue pour sélectionner une photo."""
+    import tkinter as tk
+    from tkinter import filedialog, messagebox
+    
+    # Créer la fenêtre principale (cachée)
+    root = tk.Tk()
+    root.withdraw()
+    
+    # Message de bienvenue
+    messagebox.showinfo(
+        "Agent Vision",
+        "Bienvenue dans l'Agent Vision!\n\n"
+        "Cliquez sur OK pour sélectionner une photo à analyser."
+    )
+    
+    # Définir les types de fichiers acceptés
+    filetypes = [
+        ("Images", "*.jpg *.jpeg *.png *.gif *.bmp *.webp"),
+        ("JPEG", "*.jpg *.jpeg"),
+        ("PNG", "*.png"),
+        ("Tous les fichiers", "*.*")
+    ]
+    
+    # Ouvrir le dialogue de sélection
+    filepath = filedialog.askopenfilename(
+        title="Sélectionnez une photo à analyser",
+        filetypes=filetypes,
+        initialdir=os.getcwd()
+    )
+    
+    root.destroy()
+    return filepath
+
 # --- Lancement ---
 if __name__ == "__main__":
-    # Vous pouvez changer ce chemin
-    image_path = "exemple.jpg" 
+    # Sélection interactive de la photo
+    image_path = select_photo()
     
-    if not os.path.exists(image_path):
-        print(f"⚠️  Image introuvable : {image_path}")
-        print("Veuillez placer une image nommée 'exemple.jpg' dans ce dossier pour tester.")
+    if image_path:
+        if os.path.exists(image_path):
+            print(f"📷 Photo sélectionnée : {image_path}")
+            asyncio.run(process_image(image_path))
+        else:
+            print(f"⚠️  Image introuvable : {image_path}")
     else:
-        asyncio.run(process_image(image_path))
+        print("❌ Aucune photo sélectionnée.")
