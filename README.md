@@ -21,10 +21,10 @@ pip install -U langchain-google-genai pillow pydantic python-dotenv
 ```
 
 ## 4. Lancer l'Agent
-Déposez une image `exemple.jpg` à côté du script, puis lancez :
 ```bash
-python agent_vision.py
+python main.py
 ```
+Puis suivez les instructions.
 
 
 # Guide d'Intégration de la base de données Google Cloud
