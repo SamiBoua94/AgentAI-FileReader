@@ -37,7 +37,6 @@ def get_next_request_id() -> int:
     return new_id
 
 # URL du Google Sheet où les logs seront enregistrés
-# URL du Google Sheet où les logs seront enregistrés
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1uEE2YIpzs74-JCcEb5NvQCeUm9VgV_owTRocvl34qH4/edit?usp=sharing"
 
 # --- Google Sheets Integration ---
@@ -62,7 +61,9 @@ def log_to_google_sheet(request_id, date, image_name, title, description):
         # Ouvrir le sheet par URL
         sheet = client.open_by_url(SHEET_URL).sheet1
         
-        row = [request_id, date, image_name, title, description]
+        # Structure : ID | Progression | Date | Image | Titre | Description
+        # On met 0 par défaut dans Progression
+        row = [request_id, 0, date, image_name, title, description]
         sheet.append_row(row)
         print("✅ Données enregistrées dans Google Sheet !")
         
@@ -70,101 +71,132 @@ def log_to_google_sheet(request_id, date, image_name, title, description):
         print(f"❌ Erreur Google Sheets : {e}")
 
 # --- Affichage des Résultats (Tkinter) ---
+# --- Affichage des Résultats (Tkinter) ---
 def show_results_window(request_id, image_name, date_time, titre, description):
-    """Affiche les résultats de l'analyse dans une fenêtre Tkinter."""
+    """Affiche les résultats de l'analyse dans une fenêtre Tkinter moderne."""
     import tkinter as tk
     from tkinter import ttk, scrolledtext
     
-    # Créer la fenêtre principale
-    root = tk.Tk()
+    # Couleurs du thème (Dracula / Modern Dark)
+    BG_COLOR = "#1E1E2E"       # Fond principal
+    CARD_COLOR = "#2D2D44"     # Fond des conteneurs
+    TEXT_COLOR = "#E0E0E0"     # Texte principal
+    ACCENT_COLOR = "#4CAF50"   # Vert (Action principale)
+    HOVER_COLOR = "#3E3E5E"    # Couleur au survol
+    
+    
+    # Déterminer si on utilise une fenêtre Toplevel (si une racine existe déjà) ou Tk
+    if tk._default_root:
+        root = tk.Toplevel()
+        # Bring to front
+        root.lift()
+        root.attributes('-topmost',True)
+        root.after_idle(root.attributes,'-topmost',False)
+    else:
+        root = tk.Tk()
+        
     root.title(f"Agent Vision - Résultat #{request_id}")
-    root.geometry("600x500")
-    root.configure(bg="#2b2b2b")
+    root.geometry("700x650") 
+    root.configure(bg=BG_COLOR)
     
-    # Style
-    style = ttk.Style()
-    style.theme_use('clam')
+    # Centrage implicite via geometry souvent géré par l'OS
     
-    # Frame principal
-    main_frame = tk.Frame(root, bg="#2b2b2b", padx=20, pady=20)
+    # Frame principal avec padding pour "respirer"
+    main_frame = tk.Frame(root, bg=BG_COLOR, padx=30, pady=30)
     main_frame.pack(fill=tk.BOTH, expand=True)
     
-    # Titre de la fenêtre
+    # Header
     title_label = tk.Label(
         main_frame, 
-        text="🤖 AGENT VISION - Résultat de l'analyse",
-        font=("Segoe UI", 16, "bold"),
-        fg="#4CAF50",
-        bg="#2b2b2b"
+        text="RÉSULTAT DE L'ANALYSE",
+        font=("Segoe UI", 20, "bold"),
+        fg="#00E676", # Vert moderne
+        bg=BG_COLOR
     )
-    title_label.pack(pady=(0, 20))
+    title_label.pack(anchor="w", pady=(0, 20))
     
-    # Frame pour les informations
-    info_frame = tk.Frame(main_frame, bg="#3c3c3c", padx=15, pady=15)
-    info_frame.pack(fill=tk.X, pady=(0, 15))
+    # --- Card Informations (ID, Date, Image, Titre) ---
+    info_card = tk.Frame(main_frame, bg=CARD_COLOR, padx=20, pady=20)
+    info_card.pack(fill=tk.X, pady=(0, 20))
     
-    # Informations
-    info_labels = [
-        (f"📋 Demande numéro : {request_id}", "#FFA726"),
-        (f"🖼️ Nom de l'image : {image_name}", "#42A5F5"),
-        (f"📅 Date : {date_time}", "#AB47BC"),
-        (f"📌 Titre : {titre}", "#66BB6A")
-    ]
-    
-    for text, color in info_labels:
-        label = tk.Label(
-            info_frame,
-            text=text,
-            font=("Segoe UI", 11),
-            fg=color,
-            bg="#3c3c3c",
-            anchor="w"
+    # Helper pour lignes d'info
+    def create_info_row(parent, label_text, value_text, value_color="#E0E0E0"):
+        row = tk.Frame(parent, bg=CARD_COLOR)
+        row.pack(fill=tk.X, pady=4)
+        
+        lbl = tk.Label(
+            row, text=label_text, font=("Segoe UI", 10, "bold"), 
+            fg="#A0A0C0", bg=CARD_COLOR, width=15, anchor="w"
         )
-        label.pack(fill=tk.X, pady=3)
-    
-    # Label pour la description
+        lbl.pack(side=tk.LEFT)
+        
+        val = tk.Label(
+            row, text=value_text, font=("Segoe UI", 11), 
+            fg=value_color, bg=CARD_COLOR, anchor="w"
+        )
+        val.pack(side=tk.LEFT, fill=tk.X, expand=True)
+
+    create_info_row(info_card, "DEMANDE #", str(request_id), "#FFA726") # Orange
+    create_info_row(info_card, "IMAGE", image_name, "#42A5F5")  # Bleu
+    create_info_row(info_card, "DATE", date_time, "#AB47BC")    # Violet
+    tk.Frame(info_card, bg="#3E3E5E", height=1).pack(fill=tk.X, pady=10) # Séparateur
+    create_info_row(info_card, "TITRE", titre, "#66BB6A")       # Vert clair
+
+    # --- Section Description ---
     desc_label = tk.Label(
         main_frame,
-        text="📝 Description du contenu :",
+        text="Description Détaillée",
         font=("Segoe UI", 12, "bold"),
         fg="#FFFFFF",
-        bg="#2b2b2b",
+        bg=BG_COLOR,
         anchor="w"
     )
-    desc_label.pack(fill=tk.X, pady=(10, 5))
+    desc_label.pack(fill=tk.X, pady=(0, 10))
     
-    # Zone de texte scrollable pour la description
     desc_text = scrolledtext.ScrolledText(
         main_frame,
         wrap=tk.WORD,
         font=("Segoe UI", 10),
-        bg="#3c3c3c",
-        fg="#FFFFFF",
+        bg=CARD_COLOR,
+        fg=TEXT_COLOR,
         height=10,
-        padx=10,
-        pady=10
+        padx=15,
+        pady=15,
+        relief=tk.FLAT,
+        insertbackground="white" # Curseur blanc
     )
     desc_text.pack(fill=tk.BOTH, expand=True)
     desc_text.insert(tk.END, description)
     desc_text.config(state=tk.DISABLED)
     
-    # Frame pour les boutons
-    btn_frame = tk.Frame(main_frame, bg="#2b2b2b")
-    btn_frame.pack(pady=(15, 0))
+    # --- Boutons ---
+    btn_frame = tk.Frame(main_frame, bg=BG_COLOR)
+    btn_frame.pack(fill=tk.X, pady=(25, 0))
 
-    # Bouton Retour (Ferme la fenêtre, retour au menu)
+    def on_enter(e, btn, col):
+        btn['bg'] = col
+    def on_leave(e, btn, col):
+        btn['bg'] = col
+
+    # Bouton Retour
     back_btn = tk.Button(
         btn_frame,
-        text="⬅️ Retour",
-        font=("Segoe UI", 11),
-        bg="#2196F3",
+        text="⬅️ Retour au Menu",
+        font=("Segoe UI", 11, "bold"),
+        bg="#2D2D44", # Sombre
         fg="white",
+        activebackground="#3D3D5C",
+        activeforeground="white",
+        relief=tk.FLAT,
+        bd=0,
         padx=20,
-        pady=8,
+        pady=12,
         cursor="hand2",
         command=root.destroy
     )
-    back_btn.pack(side=tk.LEFT, padx=10)
+    back_btn.pack(side=tk.LEFT)
+    back_btn.bind("<Enter>", lambda e: on_enter(e, back_btn, "#3D3D5C"))
+    back_btn.bind("<Leave>", lambda e: on_leave(e, back_btn, "#2D2D44"))
 
     # Bouton Fermer (Quitte l'application)
     def quit_app():
@@ -174,19 +206,26 @@ def show_results_window(request_id, image_name, date_time, titre, description):
 
     close_btn = tk.Button(
         btn_frame,
-        text="❌ Fermer",
-        font=("Segoe UI", 11),
-        bg="#D32F2F",
+        text="Quitter ❌",
+        font=("Segoe UI", 11, "bold"),
+        bg="#FF5252", # Rouge
         fg="white",
+        activebackground="#FF8A80",
+        activeforeground="white",
+        relief=tk.FLAT,
+        bd=0,
         padx=20,
-        pady=8,
+        pady=12,
         cursor="hand2",
         command=quit_app
     )
-    close_btn.pack(side=tk.LEFT, padx=10)
+    close_btn.pack(side=tk.RIGHT)
+    close_btn.bind("<Enter>", lambda e: on_enter(e, close_btn, "#FF1744"))
+    close_btn.bind("<Leave>", lambda e: on_leave(e, close_btn, "#FF5252"))
     
     # Afficher la fenêtre
-    root.mainloop()
+    if isinstance(root, tk.Tk):
+        root.mainloop()
 
 # --- Cœur de l'Agent ---
 def process_image(image_path: str):
