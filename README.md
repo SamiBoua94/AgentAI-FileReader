@@ -39,13 +39,16 @@ Cette application a été conçue pour résoudre des problèmes concrets de gest
 
 
 **Page d'accueil**
+
 <img width="449" height="468" alt="Image" src="https://github.com/user-attachments/assets/b3cbe10d-ecd8-4e1f-ae04-1ed923beae6c" />
 
 **Tableau de bord**
-<img width="947" height="374" alt="TablBord" src="https://github.com/user-attachments/assets/345b86f4-3c1b-4c75-9acb-5133b9e20a00" />
+
+<img width="944" height="395" alt="TablBord" src="https://github.com/user-attachments/assets/0923ccd6-7496-4e49-87ab-6584133aa442" />
 
 
 ## 3. Technologies Utilisées
+
 
 Ce projet repose sur une stack moderne et légère :
 
@@ -61,7 +64,6 @@ Ce projet repose sur une stack moderne et légère :
 
 Des guides détaillés sont disponibles dans ce dépôt pour vous aider à configurer le projet :
 
-*   **Configuration Base de Données** : 📄 [Guide Google Sheets]
 ## A. Préparation du Google Sheet
 
 1.  Créez un nouveau Google Sheet dans votre navigateur.
@@ -82,9 +84,6 @@ Nous devons installer :
 ```bash
 pip install gspread oauth2client
 ```
-
-
-*   **Configuration Dashboard** : 📄 [Guide Looker Studio](./LOOKER_STUDIO_GUIDE.md)
 
 ### Installation Rapide
 
