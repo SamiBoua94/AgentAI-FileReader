@@ -5,6 +5,8 @@ Vous avez besoin d'un compte google cloud platform.
 Voici comment lancer votre agent :
 Votre environnement n'a pas Pytnon installé (ou configuré dans le PATH). 
 
+<img width="449" height="468" alt="Image" src="https://github.com/user-attachments/assets/b3cbe10d-ecd8-4e1f-ae04-1ed923beae6c" />
+
 ## 1. Installer Python
 1. Téléchargez Python sur [python.org/downloads](https://www.python.org/downloads/).
 2. **IMPORTANT** : Cochez la case **"Add Python to PATH"** lors de l'installation.
